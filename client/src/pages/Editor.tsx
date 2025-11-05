@@ -15,13 +15,9 @@ import {
   Undo2,
   Redo2,
   Image as ImageIcon,
-  Maximize2,
+  Menu,
+  X,
 } from 'lucide-react';
-
-interface CanvasObject {
-  id: string;
-  object: any;
-}
 
 export default function Editor() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -36,20 +32,21 @@ export default function Editor() {
   const [strokeWidth, setStrokeWidth] = useState(1);
   const [textContent, setTextContent] = useState('أضف نصاً');
   const [selectedFont, setSelectedFont] = useState('Arial');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
 
   // Initialize Fabric Canvas
   useEffect(() => {
     if (!canvasRef.current) return;
 
     const fabricCanvas = new Canvas(canvasRef.current, {
-      width: 800,
-      height: 600,
+      width: canvasSize.width,
+      height: canvasSize.height,
       backgroundColor: '#ffffff',
     });
 
     fabricCanvasRef.current = fabricCanvas;
 
-    // Handle object selection
     fabricCanvas.on('selection:created', (e) => {
       setSelectedObject(e.selected?.[0]);
     });
@@ -62,20 +59,29 @@ export default function Editor() {
       setSelectedObject(null);
     });
 
-    // Handle object modification
     fabricCanvas.on('object:modified', () => {
       saveHistory();
     });
 
-    // Initialize history
     saveHistory();
 
+    // Handle window resize
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        fabricCanvas.setWidth(window.innerWidth - 20);
+        fabricCanvas.setHeight(window.innerHeight - 200);
+      }
+      fabricCanvas.renderAll();
+    };
+
+    window.addEventListener('resize', handleResize);
+
     return () => {
+      window.removeEventListener('resize', handleResize);
       fabricCanvas.dispose();
     };
-  }, []);
+  }, [canvasSize]);
 
-  // Save canvas state to history
   const saveHistory = () => {
     if (!fabricCanvasRef.current) return;
     const json = fabricCanvasRef.current.toJSON();
@@ -83,7 +89,6 @@ export default function Editor() {
     setHistoryStep((prev) => prev + 1);
   };
 
-  // Undo
   const handleUndo = () => {
     if (historyStep > 0) {
       const newStep = historyStep - 1;
@@ -92,7 +97,6 @@ export default function Editor() {
     }
   };
 
-  // Redo
   const handleRedo = () => {
     if (historyStep < history.length - 1) {
       const newStep = historyStep + 1;
@@ -101,7 +105,6 @@ export default function Editor() {
     }
   };
 
-  // Load canvas from history
   const loadFromHistory = (json: any) => {
     if (!fabricCanvasRef.current) return;
     fabricCanvasRef.current.loadFromJSON(json, () => {
@@ -109,7 +112,6 @@ export default function Editor() {
     });
   };
 
-  // Add Text
   const addText = () => {
     if (!fabricCanvasRef.current) return;
 
@@ -128,7 +130,6 @@ export default function Editor() {
     saveHistory();
   };
 
-  // Add Rectangle
   const addRectangle = () => {
     if (!fabricCanvasRef.current) return;
 
@@ -148,7 +149,6 @@ export default function Editor() {
     saveHistory();
   };
 
-  // Add Circle
   const addCircle = () => {
     if (!fabricCanvasRef.current) return;
 
@@ -167,7 +167,6 @@ export default function Editor() {
     saveHistory();
   };
 
-  // Add Triangle
   const addTriangle = () => {
     if (!fabricCanvasRef.current) return;
 
@@ -187,7 +186,6 @@ export default function Editor() {
     saveHistory();
   };
 
-  // Add Image
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !fabricCanvasRef.current) return;
@@ -213,7 +211,6 @@ export default function Editor() {
     reader.readAsDataURL(file);
   };
 
-  // Delete selected object
   const deleteSelected = () => {
     if (!fabricCanvasRef.current || !selectedObject) return;
     fabricCanvasRef.current.remove(selectedObject);
@@ -222,7 +219,6 @@ export default function Editor() {
     saveHistory();
   };
 
-  // Duplicate selected object
   const duplicateSelected = () => {
     if (!fabricCanvasRef.current || !selectedObject) return;
 
@@ -238,7 +234,6 @@ export default function Editor() {
     });
   };
 
-  // Export Canvas as Image
   const exportAsImage = (format: 'png' | 'jpeg') => {
     if (!fabricCanvasRef.current) return;
 
@@ -254,7 +249,6 @@ export default function Editor() {
     link.click();
   };
 
-  // Update selected object properties
   useEffect(() => {
     if (!selectedObject) return;
 
@@ -276,21 +270,24 @@ export default function Editor() {
   }, [fontSize, fontColor, fillColor, strokeColor, strokeWidth, selectedObject, selectedFont]);
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg overflow-y-auto">
-        <div className="p-4 border-b bg-gradient-to-r from-blue-600 to-blue-500">
+      <div
+        className={`glass-lg fixed md:relative z-40 h-screen overflow-y-auto transition-all duration-300 ${
+          sidebarOpen ? 'w-64' : 'w-0 md:w-64'
+        } md:w-64`}
+      >
+        <div className="p-4 border-b border-white/20 bg-gradient-to-r from-blue-600 to-purple-600">
           <h1 className="text-2xl font-bold text-white">Pixellab Web</h1>
           <p className="text-sm text-blue-100">محرر الرسومات</p>
         </div>
 
         <Tabs defaultValue="tools" className="w-full">
-          <TabsList className="w-full rounded-none border-b">
+          <TabsList className="w-full rounded-none border-b border-white/20 bg-transparent">
             <TabsTrigger value="tools" className="flex-1 text-xs">أدوات</TabsTrigger>
             <TabsTrigger value="properties" className="flex-1 text-xs">خصائص</TabsTrigger>
           </TabsList>
 
-          {/* Tools Tab */}
           <TabsContent value="tools" className="p-4 space-y-3">
             <div className="space-y-2">
               <h3 className="font-semibold text-sm">النصوص</h3>
@@ -298,12 +295,12 @@ export default function Editor() {
                 placeholder="أدخل النص"
                 value={textContent}
                 onChange={(e) => setTextContent(e.target.value)}
-                className="text-sm"
+                className="text-sm glass-sm border-white/20"
               />
               <select
                 value={selectedFont}
                 onChange={(e) => setSelectedFont(e.target.value)}
-                className="w-full px-2 py-1 border rounded text-sm"
+                className="w-full px-2 py-1 border border-white/20 rounded text-sm glass-sm"
               >
                 <option value="Arial">Arial</option>
                 <option value="Georgia">Georgia</option>
@@ -318,39 +315,36 @@ export default function Editor() {
                 onChange={(e) => setFontSize(Number(e.target.value))}
                 min="8"
                 max="100"
-                className="text-sm"
+                className="text-sm glass-sm border-white/20"
               />
               <div className="flex gap-2">
                 <Input
                   type="color"
                   value={fontColor}
                   onChange={(e) => setFontColor(e.target.value)}
-                  className="w-12 h-10 p-1"
-                  title="لون النص"
+                  className="w-12 h-10 p-1 glass-sm border-white/20"
                 />
-                <Button onClick={addText} className="flex-1 text-sm">
+                <Button onClick={addText} className="flex-1 text-sm bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-smooth">
                   <Type className="w-4 h-4 mr-2" />
                   إضافة نص
                 </Button>
               </div>
             </div>
 
-            <div className="space-y-2 pt-4 border-t">
+            <div className="space-y-2 pt-4 border-t border-white/20">
               <h3 className="font-semibold text-sm">الأشكال</h3>
               <div className="flex gap-2">
                 <Input
                   type="color"
                   value={fillColor}
                   onChange={(e) => setFillColor(e.target.value)}
-                  className="w-12 h-10 p-1"
-                  title="لون التعبئة"
+                  className="w-12 h-10 p-1 glass-sm border-white/20"
                 />
                 <Input
                   type="color"
                   value={strokeColor}
                   onChange={(e) => setStrokeColor(e.target.value)}
-                  className="w-12 h-10 p-1"
-                  title="لون الحد"
+                  className="w-12 h-10 p-1 glass-sm border-white/20"
                 />
                 <Input
                   type="number"
@@ -358,25 +352,24 @@ export default function Editor() {
                   onChange={(e) => setStrokeWidth(Number(e.target.value))}
                   min="0"
                   max="10"
-                  className="w-12 h-10 p-1 text-sm"
-                  title="عرض الحد"
+                  className="w-12 h-10 p-1 text-sm glass-sm border-white/20"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <Button onClick={addRectangle} variant="outline" size="sm">
+                <Button onClick={addRectangle} variant="outline" size="sm" className="glass-sm border-white/20 hover:bg-white/20 transition-smooth">
                   <Square className="w-4 h-4 mr-1" />
                   مستطيل
                 </Button>
-                <Button onClick={addCircle} variant="outline" size="sm">
+                <Button onClick={addCircle} variant="outline" size="sm" className="glass-sm border-white/20 hover:bg-white/20 transition-smooth">
                   <CircleIcon className="w-4 h-4 mr-1" />
                   دائرة
                 </Button>
-                <Button onClick={addTriangle} variant="outline" size="sm">
+                <Button onClick={addTriangle} variant="outline" size="sm" className="glass-sm border-white/20 hover:bg-white/20 transition-smooth">
                   <TriangleIcon className="w-4 h-4 mr-1" />
                   مثلث
                 </Button>
-                <Button variant="outline" size="sm" className="relative">
+                <Button variant="outline" size="sm" className="relative glass-sm border-white/20 hover:bg-white/20 transition-smooth">
                   <ImageIcon className="w-4 h-4 mr-1" />
                   صورة
                   <input
@@ -389,7 +382,7 @@ export default function Editor() {
               </div>
             </div>
 
-            <div className="space-y-2 pt-4 border-t">
+            <div className="space-y-2 pt-4 border-t border-white/20">
               <h3 className="font-semibold text-sm">التحكم</h3>
               <div className="grid grid-cols-2 gap-2">
                 <Button
@@ -397,6 +390,7 @@ export default function Editor() {
                   variant="outline"
                   size="sm"
                   disabled={historyStep === 0}
+                  className="glass-sm border-white/20 hover:bg-white/20 transition-smooth disabled:opacity-50"
                 >
                   <Undo2 className="w-4 h-4" />
                 </Button>
@@ -405,6 +399,7 @@ export default function Editor() {
                   variant="outline"
                   size="sm"
                   disabled={historyStep === history.length - 1}
+                  className="glass-sm border-white/20 hover:bg-white/20 transition-smooth disabled:opacity-50"
                 >
                   <Redo2 className="w-4 h-4" />
                 </Button>
@@ -413,6 +408,7 @@ export default function Editor() {
                   variant="outline"
                   size="sm"
                   disabled={!selectedObject}
+                  className="glass-sm border-white/20 hover:bg-white/20 transition-smooth disabled:opacity-50"
                 >
                   <Copy className="w-4 h-4" />
                 </Button>
@@ -421,27 +417,26 @@ export default function Editor() {
                   variant="destructive"
                   size="sm"
                   disabled={!selectedObject}
+                  className="transition-smooth disabled:opacity-50"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
             </div>
 
-            <div className="space-y-2 pt-4 border-t">
+            <div className="space-y-2 pt-4 border-t border-white/20">
               <h3 className="font-semibold text-sm">التصدير</h3>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   onClick={() => exportAsImage('png')}
-                  variant="default"
-                  size="sm"
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transition-smooth text-sm"
                 >
                   <Download className="w-4 h-4 mr-1" />
                   PNG
                 </Button>
                 <Button
                   onClick={() => exportAsImage('jpeg')}
-                  variant="default"
-                  size="sm"
+                  className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 transition-smooth text-sm"
                 >
                   <Download className="w-4 h-4 mr-1" />
                   JPG
@@ -450,18 +445,17 @@ export default function Editor() {
             </div>
           </TabsContent>
 
-          {/* Properties Tab */}
           <TabsContent value="properties" className="p-4 space-y-3">
             {selectedObject ? (
-              <Card className="p-4">
+              <Card className="p-4 glass-sm border-white/20">
                 <h3 className="font-semibold text-sm mb-3">خصائص العنصر</h3>
                 <div className="space-y-3 text-sm">
                   <div>
-                    <label className="block text-gray-600 mb-1">نوع:</label>
-                    <p className="text-gray-900">{selectedObject.type}</p>
+                    <label className="block text-gray-600 dark:text-gray-300 mb-1">نوع:</label>
+                    <p className="text-gray-900 dark:text-gray-100">{selectedObject.type}</p>
                   </div>
                   <div>
-                    <label className="block text-gray-600 mb-1">العرض:</label>
+                    <label className="block text-gray-600 dark:text-gray-300 mb-1">العرض:</label>
                     <Input
                       type="number"
                       value={Math.round(selectedObject.width * selectedObject.scaleX)}
@@ -471,11 +465,11 @@ export default function Editor() {
                         });
                         fabricCanvasRef.current?.renderAll();
                       }}
-                      className="text-sm"
+                      className="text-sm glass-sm border-white/20"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-600 mb-1">الارتفاع:</label>
+                    <label className="block text-gray-600 dark:text-gray-300 mb-1">الارتفاع:</label>
                     <Input
                       type="number"
                       value={Math.round(selectedObject.height * selectedObject.scaleY)}
@@ -485,11 +479,11 @@ export default function Editor() {
                         });
                         fabricCanvasRef.current?.renderAll();
                       }}
-                      className="text-sm"
+                      className="text-sm glass-sm border-white/20"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-600 mb-1">الدوران:</label>
+                    <label className="block text-gray-600 dark:text-gray-300 mb-1">الدوران:</label>
                     <Input
                       type="number"
                       value={Math.round(selectedObject.angle || 0)}
@@ -497,11 +491,11 @@ export default function Editor() {
                         selectedObject.set({ angle: Number(e.target.value) });
                         fabricCanvasRef.current?.renderAll();
                       }}
-                      className="text-sm"
+                      className="text-sm glass-sm border-white/20"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-600 mb-1">الشفافية:</label>
+                    <label className="block text-gray-600 dark:text-gray-300 mb-1">الشفافية:</label>
                     <Input
                       type="range"
                       min="0"
@@ -526,28 +520,43 @@ export default function Editor() {
         </Tabs>
       </div>
 
-      {/* Canvas Area */}
-      <div className="flex-1 flex flex-col">
+      {/* Main Canvas Area */}
+      <div className="flex-1 flex flex-col relative">
         {/* Top Toolbar */}
-        <div className="bg-white border-b px-4 py-3 flex items-center justify-between shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-800">محرر الرسومات</h2>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <Maximize2 className="w-4 h-4" />
+        <div className="glass-lg border-b border-white/20 px-4 py-3 flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              variant="ghost"
+              size="sm"
+              className="md:hidden"
+            >
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
+            <h2 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              محرر الرسومات
+            </h2>
           </div>
         </div>
 
         {/* Canvas Container */}
-        <div className="flex-1 flex items-center justify-center p-4 overflow-auto bg-gradient-to-br from-gray-50 to-gray-100">
-          <div className="bg-white rounded-lg shadow-2xl">
+        <div className="flex-1 flex items-center justify-center p-2 md:p-4 overflow-auto">
+          <div className="glass-lg rounded-2xl shadow-2xl p-4 md:p-6">
             <canvas
               ref={canvasRef}
-              className="border border-gray-300 cursor-crosshair rounded-lg"
+              className="border-2 border-white/30 rounded-lg cursor-crosshair transition-smooth"
             />
           </div>
         </div>
       </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 md:hidden z-30"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
     </div>
   );
 }
